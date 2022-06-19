@@ -1,29 +1,30 @@
-﻿using ClearBank.DeveloperTest.Domain.Interfaces;
+﻿using ClearBank.DeveloperTest.Data.Command;
+using ClearBank.DeveloperTest.Data.Query;
+using ClearBank.DeveloperTest.Domain.Interfaces;
 using ClearBank.DeveloperTest.Domain.Models;
+using MediatR;
 
 namespace ClearBank.DeveloperTest.Domain.Services.Services
 {    
     public class AccountService : IAccountService
     {
         private readonly IConfigurationService _configurationService;
-        private readonly IDataStoreFactory _dataStoreFactory;  
+        private readonly IMediator _mediator;
 
-        public AccountService(IDataStoreFactory dataStoreFactory, IConfigurationService configurationService)
+        public AccountService(IConfigurationService configurationService, IMediator mediator)
         {
-            _dataStoreFactory = dataStoreFactory;
             _configurationService = configurationService;            
+            _mediator = mediator;
         }
 
         public Account GetAccount(string accountNumber)
         {
-            var dataStore = _dataStoreFactory.GetDataStoreType(_configurationService.DataStoreType);
-            return dataStore.GetAccount(accountNumber);
+            return _mediator.Send(new GetAccountQuery(accountNumber, _configurationService.DataStoreType)).Result;
         }
 
         public void UpdateAccount(Account account)
         {
-            var dataStore = _dataStoreFactory.GetDataStoreType(_configurationService.DataStoreType);
-            dataStore.UpdateAccount(account);
+            _mediator.Send(new UpdateAccountCommand(account, _configurationService.DataStoreType));
         }
     }
 }

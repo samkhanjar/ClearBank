@@ -274,3 +274,6 @@ ClearBank.DeveloperTest/obj/Debug/net6.0/refint/ClearBank.DeveloperTest.Domain.S
 ClearBank.DeveloperTest/obj/project.nuget.cache
 .vs/ClearBank.DeveloperTest/DesignTimeBuild/.dtbcache.v2
 .vs/ClearBank.DeveloperTest/v17/.futdcache.v1
+.vs/ClearBank.DeveloperTest/v17/TestStore/0/003.testlog
+ClearBank.DeveloperTest.Tests/bin/Debug/net6.0/MediatR.Contracts.dll
+ClearBank.DeveloperTest.Tests/bin/Debug/net6.0/MediatR.dll

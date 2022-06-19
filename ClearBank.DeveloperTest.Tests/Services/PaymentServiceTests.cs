@@ -1,10 +1,14 @@
-﻿using ClearBank.DeveloperTest.Domain.Enum;
+﻿using ClearBank.DeveloperTest.Data.Command;
+using ClearBank.DeveloperTest.Data.Query;
+using ClearBank.DeveloperTest.Domain.Enum;
 using ClearBank.DeveloperTest.Domain.Interfaces;
 using ClearBank.DeveloperTest.Domain.Models;
 using ClearBank.DeveloperTest.Domain.Services.Services;
 using FizzWare.NBuilder;
 using FluentAssertions;
+using MediatR;
 using Moq;
+using System.Threading;
 using Xunit;
 
 namespace ClearBank.DeveloperTest.Tests.Services
@@ -12,17 +16,15 @@ namespace ClearBank.DeveloperTest.Tests.Services
     public class PaymentServiceTests
     {
         private readonly Mock<IPaymentProcessService> _paymentProcessService;        
-        private readonly Mock<IAccountDataStore> _accountDataStore;
         private readonly Mock<IConfigurationService> _configurationService;
-        private readonly Mock<IDataStoreFactory> _dataStoreFactory;
+        private readonly Mock<IMediator> _mediator;
         private readonly PaymentValidationService _paymentValidationService;
 
         public PaymentServiceTests()
         {
             _paymentProcessService = new Mock<IPaymentProcessService>();
-            _accountDataStore = new Mock<IAccountDataStore>();
             _configurationService = new Mock<IConfigurationService>();
-            _dataStoreFactory = new Mock<IDataStoreFactory>();
+            _mediator = new Mock<IMediator>();
             _paymentValidationService = new PaymentValidationService();
         }
 
@@ -30,12 +32,11 @@ namespace ClearBank.DeveloperTest.Tests.Services
         public void MakePayment_FasterPaymentsScheme_And_AccountNotExist_Return_False()
         {
             // Arrange
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => null);
             _paymentProcessService.Setup(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()));
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => null);            
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);            
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object), 
+                new AccountService(_configurationService.Object, _mediator.Object), 
                 _paymentValidationService, 
                 _paymentProcessService.Object);
 
@@ -46,9 +47,9 @@ namespace ClearBank.DeveloperTest.Tests.Services
             // Act
             var result = paymentService.MakePayment(makePaymentRequest);
 
-            // Assert
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Never);
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
+            // Assert            
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), It.IsAny<CancellationToken>()), Times.Once);
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), It.IsAny<CancellationToken>()), Times.Never);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(1));       
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Never);
 
@@ -59,12 +60,11 @@ namespace ClearBank.DeveloperTest.Tests.Services
         public void MakePayment_ChapsPaymentScheme_And_AccountNotExist_Return_False()
         {
             // Arrange
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => null);            
             _paymentProcessService.Setup(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()));
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => null);            
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService,
                 _paymentProcessService.Object);
 
@@ -75,9 +75,9 @@ namespace ClearBank.DeveloperTest.Tests.Services
             // Act
             var result = paymentService.MakePayment(makePaymentRequest);
 
-            // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Never);
+            // Assert            
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), It.IsAny<CancellationToken>()), Times.Once);
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), It.IsAny<CancellationToken>()), Times.Never);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(1));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Never);
 
@@ -88,12 +88,11 @@ namespace ClearBank.DeveloperTest.Tests.Services
         public void MakePayment_BacsPaymentScheme_And_AccountNotExist_Return_False()
         {
             // Arrange
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => null);            
             _paymentProcessService.Setup(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()));
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => null);            
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService,
                 _paymentProcessService.Object);
 
@@ -105,8 +104,8 @@ namespace ClearBank.DeveloperTest.Tests.Services
             var result = paymentService.MakePayment(makePaymentRequest);
 
             // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Never);
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), default(CancellationToken)), Times.Never);
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken)), Times.Once);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(1));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Never);
 
@@ -122,8 +121,7 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .With(x => x.Balance = 100)
                 .Build();
 
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => account);
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);            
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => account);
 
             var makePaymentRequest = Builder<MakePaymentRequest>.CreateNew()
                 .With(x => x.PaymentScheme = PaymentScheme.FasterPayments)
@@ -134,16 +132,16 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .Callback(() => account.Balance -= makePaymentRequest.Amount);
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService,
                 _paymentProcessService.Object);
 
             // Act
             var result = paymentService.MakePayment(makePaymentRequest);
 
-            // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Once);
+            // Assert            
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), It.IsAny<CancellationToken>()), Times.Once);
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), It.IsAny<CancellationToken>()), Times.Once);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(2));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Once);
 
@@ -161,8 +159,7 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .With(x => x.Status = AccountStatus.Live)
                 .Build();
 
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => account);
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);            
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => account);            
 
             var makePaymentRequest = Builder<MakePaymentRequest>.CreateNew()
                 .With(x => x.PaymentScheme = PaymentScheme.Chaps)
@@ -173,16 +170,16 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .Callback(() => account.Balance -= makePaymentRequest.Amount);
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService, 
                 _paymentProcessService.Object);
 
             // Act
             var result = paymentService.MakePayment(makePaymentRequest);
 
-            // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Once);
+            // Assert            
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), It.IsAny<CancellationToken>()), Times.Once);
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), It.IsAny<CancellationToken>()), Times.Once);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(2));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Once);
 
@@ -198,9 +195,8 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .With(x => x.AllowedPaymentSchemes = AllowedPaymentSchemes.Bacs)
                 .With(x => x.Balance = 100)
                 .Build();
-
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => account);
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);            
+            
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => account);
 
             var makePaymentRequest = Builder<MakePaymentRequest>.CreateNew()
                 .With(x => x.PaymentScheme = PaymentScheme.Bacs)
@@ -211,16 +207,16 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .Callback(() => account.Balance -= makePaymentRequest.Amount);
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService,
                 _paymentProcessService.Object);
 
             // Act
             var result = paymentService.MakePayment(makePaymentRequest);
 
-            // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Once);
+            // Assert            
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), default(CancellationToken)), Times.Once);
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken)), Times.Once);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(2));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Once);
 
@@ -237,12 +233,11 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .With(x => x.Balance = 100)
                 .Build();
 
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => account);
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => account);
             _paymentProcessService.Setup(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()));            
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService,
                 _paymentProcessService.Object);
 
@@ -253,9 +248,9 @@ namespace ClearBank.DeveloperTest.Tests.Services
             // Act
             var result = paymentService.MakePayment(makePaymentRequest);
 
-            // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Never);
+            // Assert            
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), It.IsAny<CancellationToken>()), Times.Once);
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), It.IsAny<CancellationToken>()), Times.Never);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(1));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Never);
 
@@ -272,12 +267,11 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .With(x => x.Balance = 100)
                 .Build();
 
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => account);
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => account);            
             _paymentProcessService.Setup(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()));            
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService,
                 _paymentProcessService.Object);
 
@@ -288,9 +282,9 @@ namespace ClearBank.DeveloperTest.Tests.Services
             // Act
             var result = paymentService.MakePayment(makePaymentRequest);
 
-            // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Never);
+            // Assert            
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), It.IsAny<CancellationToken>()), Times.Once);
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), It.IsAny<CancellationToken>()), Times.Never);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(1));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Never);
 
@@ -307,12 +301,11 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .With(x => x.Balance = 100)
                 .Build();
 
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => account);
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => account);            
             _paymentProcessService.Setup(x => x.DebitAmount(account, It.IsAny<decimal>()));            
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService,
                 _paymentProcessService.Object);
 
@@ -323,9 +316,9 @@ namespace ClearBank.DeveloperTest.Tests.Services
             // Act
             var result = paymentService.MakePayment(makePaymentRequest);
 
-            // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Never);
+            // Assert            
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), default(CancellationToken)), Times.Never);
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken)), Times.Once);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(1));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Never);
 
@@ -342,8 +335,7 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .With(x => x.Balance = 100)
                 .Build();
 
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => account);
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => account);            
             _paymentProcessService.Setup(x => x.DebitAmount(account, It.IsAny<decimal>()));            
 
             MakePaymentRequest makePaymentRequest = Builder<MakePaymentRequest>.CreateNew()
@@ -352,7 +344,7 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .Build();
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService,
                 _paymentProcessService.Object);
 
@@ -360,8 +352,8 @@ namespace ClearBank.DeveloperTest.Tests.Services
             var result = paymentService.MakePayment(makePaymentRequest);
 
             // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Never);
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), default(CancellationToken)), Times.Never);
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken)), Times.Once);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(1));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Never);
 
@@ -379,12 +371,11 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .With(x => x.Status = AccountStatus.Disabled)
                 .Build();
 
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => account);
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => account);            
             _paymentProcessService.Setup(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()));            
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService,
                 _paymentProcessService.Object);
 
@@ -395,9 +386,9 @@ namespace ClearBank.DeveloperTest.Tests.Services
             // Act
             var result = paymentService.MakePayment(makePaymentRequest);
 
-            // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Never);
+            // Assert            
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), It.IsAny<CancellationToken>()), Times.Once);            
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), It.IsAny<CancellationToken>()), Times.Never);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(1));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Never);
 
@@ -414,12 +405,11 @@ namespace ClearBank.DeveloperTest.Tests.Services
                 .With(x => x.Balance = 100)
                 .Build();
 
-            _accountDataStore.Setup(x => x.GetAccount(It.IsAny<string>())).Returns(() => account);
-            _dataStoreFactory.Setup(x => x.GetDataStoreType(It.IsAny<string>())).Returns(_accountDataStore.Object);
+            _mediator.Setup(x => x.Send(It.IsAny<GetAccountQuery>(), default(CancellationToken))).ReturnsAsync(() => account);
             _paymentProcessService.Setup(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()));            
 
             var paymentService = new PaymentService(
-                new AccountService(_dataStoreFactory.Object, _configurationService.Object),
+                new AccountService(_configurationService.Object, _mediator.Object),
                 _paymentValidationService,
                 _paymentProcessService.Object);
 
@@ -431,9 +421,9 @@ namespace ClearBank.DeveloperTest.Tests.Services
             // Act
             var result = paymentService.MakePayment(makePaymentRequest);
 
-            // Assert
-            _accountDataStore.Verify(x => x.GetAccount(It.IsAny<string>()), Times.Once);
-            _accountDataStore.Verify(x => x.UpdateAccount(It.IsAny<Account>()), Times.Never);
+            // Assert            
+            _mediator.Verify(x => x.Send(It.IsAny<GetAccountQuery>(), It.IsAny<CancellationToken>()), Times.Once);
+            _mediator.Verify(x => x.Send(It.IsAny<UpdateAccountCommand>(), It.IsAny<CancellationToken>()), Times.Never);
             _configurationService.Verify(x => x.DataStoreType, Times.Exactly(1));            
             _paymentProcessService.Verify(x => x.DebitAmount(It.IsAny<Account>(), It.IsAny<decimal>()), Times.Never);
 
