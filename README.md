@@ -12,4 +12,4 @@ To run the project follow the instructions:
 4. Navigate to Test menu and click on 'Run All Tests'.   
 
 # Future Development
-Develop mediators, error handling, logging and more test coverage.
+Develop error handling, logging and more test coverage.
